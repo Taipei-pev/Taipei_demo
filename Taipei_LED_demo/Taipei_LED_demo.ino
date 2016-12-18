@@ -1,4 +1,5 @@
-#include <Adafruit_NeoPixel.h>
+#include <FastLED.h>
+#include <colorutils.h>
 
 // Sonar Config
 #define SONAR_COUNT 14
@@ -11,7 +12,13 @@
 #define ZERO_Y 0.21 // Accel at rest
 #define NOISE 0.02 // Noise
 
-// Defint
+//define pins
+#define topLeftPin      22
+#define topRightPin     23
+#define midLeftPin      24
+#define midRightPin     25
+#define bottomLeftPin   26
+#define bottomRightPin   27
 
 // How many NeoPixels are attached to the Arduino?
 #define topLeftLength      39
@@ -31,15 +38,16 @@
 
 #define MAXWAVES       3
 
-// When we setup the NeoPixel library, we tell it how many pixels, and which pin to use to send signals.
-// Note that for older NeoPixel strips you might need to change the third parameter--see the strandtest
-// example for more information on possible values.
-Adafruit_NeoPixel topLeft = Adafruit_NeoPixel(topLeftLength, 22, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel topRight = Adafruit_NeoPixel(topRightLength, 23, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel midLeft = Adafruit_NeoPixel(midLeftLength, 24, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel midRight = Adafruit_NeoPixel(midRightLength, 25, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel bottomLeft = Adafruit_NeoPixel(bottomLeftLength, 26, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel bottomRight = Adafruit_NeoPixel(bottomRightLength, 27, NEO_GRB + NEO_KHZ800);
+// The Fast LED library needs an array for each led strip
+
+CRGB topLeft[topLeftLength];
+CRGB topRight[topRightLength];
+CRGB midLeft[midLeftLength];
+CRGB midRight[midRightLength];
+CRGB bottomLeft[bottomLeftLength];
+CRGB bottomRight[bottomRightLength];
+
+
 int positions[SONAR_COUNT] = {5, 15 , 25};
 int distances[14] = { 9999, 9999, 9999 , 9999, 9999, 9999 , 9999, 9999, 9999, 9999, 9999, 9999, 9999, 9999};
 
@@ -57,11 +65,20 @@ int proxDelayVal = 2;
 int waxing = -1;
 int waveSpeed = 2;
 
-uint32_t baseColor = topLeft.Color(0, 0, 0);
-uint8_t waveColor[] = {255, 255, 255};
-uint8_t proxColor[] = {255, 255, 0};
-uint8_t proximity_right[14] = {3, 10, 17, 27, 38, 44, 51, 59, 66, 37, 27, 17 ,11}; //Set the sensor and led start position  
+CRGB baseColor = CRGB::Black;
+CRGB waveColor(200, 200, 200);
+CRGB proxColor(255, 0, 255);
+
+//TODO: Are these the positions of the sonars? I'm going to assume that these correspond to the nearest LED to the sonar
+uint8_t proximity_right[14] = {3, 10, 17, 27, 38, 44, 51, 59, 66, 37, 27, 17 , 11}; //Set the sensor and led start position
 // 67 在左側  左側底 40顆 設定每個感測器 偵測時LED起始位置(14顆感測器)
+
+// Code for handlingthe sonar shockwave animation
+int sonarWaveReady[SONAR_COUNT] = {1};
+int sonarWaves[SONAR_COUNT] = {0};
+int lowThreshold = 500;
+int highThreshold = 800;
+int sonarWaveWidth = 10;
 
 #define prox_count 8
 #define prox_range 600
@@ -88,14 +105,15 @@ void setup() {
   pinMode(A11, INPUT);
   pinMode(A12, INPUT);
   pinMode(A13, INPUT);
-  pinMode(A14, INPUT);  
-  // Setup LEDs
-  topLeft.begin();
-  topRight.begin();
-  midLeft.begin();
-  midRight.begin();
-  bottomLeft.begin();
-  bottomRight.begin();
+  pinMode(A14, INPUT);
+
+  // Setup LEDs. FastLED requires the strip type, the pin, and the length
+  FastLED.addLeds<NEOPIXEL, topLeftPin>(topLeft, topLeftLength);
+  FastLED.addLeds<NEOPIXEL, topRightPin>(topRight, topRightLength);
+  FastLED.addLeds<NEOPIXEL, midLeftPin>(midLeft, midLeftLength);
+  FastLED.addLeds<NEOPIXEL, midRightPin>(midRight, midRightLength);
+  FastLED.addLeds<NEOPIXEL, bottomLeftPin>(bottomLeft, bottomLeftLength);
+  FastLED.addLeds<NEOPIXEL, bottomRightPin>(bottomRight, bottomRightLength);
 }
 
 // Read all the sonars and
@@ -239,26 +257,19 @@ void loop() {
   //topRight.setPixelColor(2, 255/4, 0, 255/4);
   //topRight.setPixelColor(3, 255/8, 0, 255/8);
   proximity();
-  topLeft.show();
-  topRight.show();
-  midLeft.show();
-  midRight.show();
-  bottomLeft.show();
-  bottomRight.show();
+  FastLED.show();
   delayCount++;
 
 }
 
 void clearLedStrips() {
   //Serial.println("Clearing");
-  for (int i = 0; i < midRightLength; i++) {
-    topLeft.setPixelColor(i, baseColor);
-    topRight.setPixelColor(i, baseColor);
-    bottomLeft.setPixelColor(i, baseColor);
-    bottomRight.setPixelColor(i, baseColor);
-    midLeft.setPixelColor(i, baseColor);
-    midRight.setPixelColor(i, baseColor);
-  }
+  fill_solid(topLeft, topLeftLength, baseColor);
+  fill_solid(topRight, topRightLength, baseColor);
+  fill_solid(midLeft, midLeftLength, baseColor);
+  fill_solid(midRight, midRightLength, baseColor);
+  fill_solid(bottomLeft, bottomLeftLength, baseColor);
+  fill_solid(bottomRight, bottomRightLength, baseColor);
   //Serial.println("Cleared");
 }
 
@@ -303,26 +314,52 @@ void clearLedStrips() {
 
 }*/
 
+void blendAndSetColors(CRGB *strip, int index, CRGB& color, float alpha) {
+  uint8_t blue = strip[index].b;
+  uint8_t red = strip[index].r;
+  uint8_t green = strip[index].g;
+  blue = lerp8by8(blue, color.b, alpha);
+  red = lerp8by8(red, color.r, alpha);
+  green = lerp8by8(green, color.g, alpha);
+  ////Serial.println(color);
+  strip[index].setRGB(red, green >> 1, blue); // Moderately bright green color.
+}
+
 void stepWaves() {
   for (int i = 0; i < waveCount; i++) {
     //Serial.print("stepping wave ");
     //Serial.println(i);
-    lightRightSide(topWaves[i], &topRight, topCenter);
-    lightLeftSide(topWaves[i], &topLeft, topCenter, topLeftLength, topRightLength, &topRight);
+    lightRightSide(topWaves[i], topRight, topCenter);
+    lightLeftSide(topWaves[i], topLeft, topCenter, topLeftLength, topRightLength, topRight);
 
-    lightRightSide(midWaves[i], &midRight, midCenter);
-    lightLeftSide(midWaves[i], &midLeft, midCenter, midLeftLength, midRightLength, &midRight);
+    lightRightSide(midWaves[i], midRight, midCenter);
+    lightLeftSide(midWaves[i], midLeft, midCenter, midLeftLength, midRightLength, midRight);
 
-    lightRightSide(bottomWaves[i], &bottomRight, bottomCenter);
-    lightLeftSide(bottomWaves[i], &bottomLeft, bottomCenter, bottomLeftLength, bottomRightLength, &bottomRight);
+    lightRightSide(bottomWaves[i], bottomRight, bottomCenter);
+    lightLeftSide(bottomWaves[i], bottomLeft, bottomCenter, bottomLeftLength, bottomRightLength, bottomRight);
 
+    // Need the if statements to check when we put negative speeds, since modulo will give us negative numbers
     topWaves[i] = (topWaves[i] + waveSpeed) % (topCenter);
+    if (topWaves[i] < 0) {
+      topWaves[i] += topCenter;
+    }
+
     midWaves[i] = (midWaves[i] + waveSpeed) % (midCenter);
+    if (midWaves[i] < 0) {
+      midWaves[i] += midCenter;
+    }
+
     bottomWaves[i] = (bottomWaves[i] + waveSpeed) % (bottomCenter);
+    if (bottomWaves[i] < 0) {
+      bottomWaves[i] += bottomCenter;
+    }
+  }
+  for (int i = 0; i < SONAR_COUNT; i++) {
+    stepSonarWave(i);
   }
 }
 
-void lightRightSide(int front, Adafruit_NeoPixel *strip, int center) {
+void lightRightSide(int front, CRGB *strip, int center) {
   int back = front - width;
   for (int i = front; i > back; i--) {
     // pixels.Color takes RGB values, from 0,0,0 up to 255,255,255
@@ -331,24 +368,15 @@ void lightRightSide(int front, Adafruit_NeoPixel *strip, int center) {
     if (index < 0) {
       index += center;
     }
-    ////Serial.println(intensity);
-    uint8_t blue = strip->getPixelColor(index);
-    uint8_t red = strip->getPixelColor(index) >> 16;
-    uint8_t green = strip->getPixelColor(index) >> 8;
-    blue = intensity * waveColor[2] + (1.0 - intensity) * blue;
-    red = intensity * waveColor[0] + (1.0 - intensity) * red;
-    green = intensity * waveColor[1] + (1.0 - intensity) * green;
-    //Serial.print("color: ");
-    //Serial.println(color);
-    strip->setPixelColor(index, strip->Color(red, green, blue)); // Moderately bright green color.
+    blendAndSetColors(strip, index, waveColor, intensity);
 
   }
   //Serial.println("lit right side");
 }
 
 
-void lightLeftSide(int front, Adafruit_NeoPixel *strip,
-                   int center, int leftLength, int rightLength, Adafruit_NeoPixel *rightStrip) {
+void lightLeftSide(int front, CRGB *strip,
+                   int center, int leftLength, int rightLength, CRGB *rightStrip) {
 
   int back = front - width;
   for (int i = front; i > back; i--) {
@@ -363,82 +391,193 @@ void lightLeftSide(int front, Adafruit_NeoPixel *strip,
     ////Serial.println(intensity);
     if ( index >= leftLength) {
       index = rightLength - 1 - (index - leftLength);
-      uint8_t blue = rightStrip->getPixelColor(index);
-      uint8_t red = rightStrip->getPixelColor(index) >> 16;
-      uint8_t green = rightStrip->getPixelColor(index) >> 8;
-
-      blue = intensity * waveColor[2] + (1.0 - intensity) * blue;
-      red = intensity * waveColor[0] + (1.0 - intensity) * red;
-      green = intensity * waveColor[1] + (1.0 - intensity) * green;
-
-      rightStrip->setPixelColor(index, topRight.Color(red, green, blue));
+      blendAndSetColors(rightStrip, index, waveColor, intensity);
     }
     else {
-
-      uint8_t blue = strip->getPixelColor(index);
-      uint8_t red = strip->getPixelColor(index) >> 16;
-      uint8_t green = strip->getPixelColor(index) >> 8;
-
-      blue = intensity * waveColor[2] + (1.0 - intensity) * blue;
-      red = intensity * waveColor[0] + (1.0 - intensity) * red;
-      green = intensity * waveColor[1] + (1.0 - intensity) * green;
-
-      strip->setPixelColor(index, topLeft.Color(red, green, blue)); // Moderately bright green color.
+      blendAndSetColors(strip, index, waveColor, intensity);
     }
 
   }
   //Serial.println("Lit left side");
 }
 void proximity() {
-  int red, green, blue;
-  red = proxColor[0]; green = proxColor[1]; blue = proxColor[2];
-  for ( int j = 1 ; j <= 13 ; j++)              //right 
+  float maxProxWidth = 10;
+  float maxDistance = 1500;
+  float minDistance = 150;
+
+  for ( int j = 1 ; j <= 13 ; j++)              //right
   {
+    int reading = max(minDistance, min(maxDistance, distances[j]));
+    if (reading < lowThreshold && sonarWaveReady[j] && !sonarWaves[j]) {
+      sonarWaveReady[j] = false;
+      sonarWaves[j] = 1;
+    }
+    else if (reading > highThreshold) {
+      sonarWaveReady[j] = true;
+    }
+
     if (distances[j] < prox_range) {
-      int first = proximity_right[j-1];
-      int last = proximity_right[j-1] + prox_count;
-      int last_left = proximity_right[j-1] - prox_count;
-      if( j == 3 || j == 4){last+=4;}
+      int first = proximity_right[j - 1];
+      int last = proximity_right[j - 1] + prox_count;
+      int last_left = proximity_right[j - 1] - prox_count;
+
+      if ( j == 3 || j == 4) {
+        last += 4;
+      }
+
       if ( j <= 9) {
-        for (int i = first ; i < last ; i++) 
+        for (int i = first ; i < last ; i++)
         {
-          topRight.setPixelColor(i, red, green, blue);
-          midRight.setPixelColor(i, red, green, blue);
-          bottomRight.setPixelColor(i-4, red, green, blue);
+          blendAndSetColors(topRight, i, proxColor, 1.0);
+          blendAndSetColors(midRight, i, proxColor, 1.0);
+          blendAndSetColors(bottomRight, i - 4, proxColor, 1.0);
         }
-       if( j == 9 ){                       //special case ,it near the door
-         for (int i = 40 ; i > 36 ; i--)  // Bright 6 LED
-         {
-          topLeft.setPixelColor(i, red, green, blue);
-          midLeft.setPixelColor(i, red, green, blue);
-          bottomLeft.setPixelColor(i-2, red, green, blue);
-         }
-         bottomLeft.setPixelColor(39, red, green, blue);
+        if ( j == 9 ) {                     //special case ,it near the door
+          for (int i = 40 ; i > 36 ; i--)  // Bright 6 LED
+          {
+            blendAndSetColors(topLeft, i, proxColor, 1.0);
+            blendAndSetColors(midLeft, i, proxColor, 1.0);
+            blendAndSetColors(bottomLeft, i - 2, proxColor, 1.0);
+          }
+          blendAndSetColors(bottomLeft, 39, proxColor, 1.0);
         }
       }
-      else if(j>=10){                             //left
-      if( j == 10  || j == 11 ){last_left-=3;}
-        for (int i = first ; i > last_left ; i--)  
+      else if (j >= 10) {                         //left
+        if ( j == 10  || j == 11 ) {
+          last_left -= 3;
+        }
+        for (int i = first ; i > last_left ; i--)
         {
-          topLeft.setPixelColor(i, red, green, blue);
-          midLeft.setPixelColor(i, red, green, blue);
-          bottomLeft.setPixelColor(i-2, red, green, blue);
+          blendAndSetColors(topLeft, i, proxColor, 1.0);
+          blendAndSetColors(midLeft, i, proxColor, 1.0);
+          blendAndSetColors(bottomLeft, i - 2, proxColor, 1.0);
         }
       }
     }
   }
-  if(distances[0] < prox_range) {  // Front
-    for (int i = 0 ; i < 5 ; i++) 
-        {
-          
-          topRight.setPixelColor(i, red, green, blue);
-          midRight.setPixelColor(i, red, green, blue);
-          bottomRight.setPixelColor(i, red, green, blue);
-          topLeft.setPixelColor(i, red, green, blue);
-          midLeft.setPixelColor(i, red, green, blue);
-          bottomLeft.setPixelColor(i, red, green, blue);
-        }
+  if (distances[0] < prox_range) { // Front
+    for (int i = 0 ; i < 5 ; i++)
+    {
+      blendAndSetColors(topLeft, max(i - 2, 0), proxColor, 1.0);
+      blendAndSetColors(midLeft, i, proxColor, 1.0);
+      blendAndSetColors(bottomLeft, max(i - 2, 0), proxColor, 1.0);
+      blendAndSetColors(topRight, max(i - 2, 0), proxColor, 1.0);
+      blendAndSetColors(midRight, i, proxColor, 1.0);
+      blendAndSetColors(bottomRight, max(i - 2, 0), proxColor, 1.0);
+    }
+  }
+}
+
+void stepSonarWave(int position) {
+  if (!sonarWaves[position]) {
+    return;
+  }
+  
+  bool left = position > 9;
+  float fade = ease8InOutApprox(1.0 - (float)sonarWaves[position] / 30.0);
+
+  int lowFront = positions[position] - sonarWaves[position];
+  for (int i = lowFront; i < (lowFront + sonarWaveWidth); i++) {
+    float intensity = fade * ((float)((lowFront + sonarWaveWidth) - i)) / ((float)sonarWaveWidth);
+    int index = i;
+    if (index < 0) {
+      index = -1 * index + 1;
+      if (left) {
+        blendAndSetColors(midRight, index, proxColor, intensity);
+      }
+      else {
+        blendAndSetColors(midLeft, index, proxColor, intensity);
+      }
+    }
+    else {
+      if (left) {
+        blendAndSetColors(midLeft, index, proxColor, intensity);
+      }
+      else {
+        blendAndSetColors(midRight, index, proxColor, intensity);
+      }
+    }
+    index = i + 4;
+    if (index < 0) {
+      index = -1 * index + 1;
+      if (left) {
+        blendAndSetColors(topRight, index, proxColor, intensity);
+        blendAndSetColors(bottomRight, index, proxColor, intensity);
+      }
+      else {
+        blendAndSetColors(topLeft, index, proxColor, intensity);
+        blendAndSetColors(bottomLeft, index, proxColor, intensity);
+      }
+    }
+    else {
+      if (left) {
+        blendAndSetColors(topLeft, index, proxColor, intensity);
+        blendAndSetColors(bottomLeft, index, proxColor, intensity);
+      }
+      else {
+        blendAndSetColors(topRight, index, proxColor, intensity);
+        blendAndSetColors(bottomRight, index, proxColor, intensity);
+      }
+    }
   }
 
-
+  int highFront = positions[position] + sonarWaves[position];
+  for (int i = (highFront - sonarWaveWidth); i < highFront; i++) {
+    float intensity = fade * ((float)((lowFront + sonarWaveWidth) - i)) / ((float)sonarWaveWidth);
+    int index = i;
+    if (left) {
+      if (index >= midLeftLength) {
+        index = (midRightLength - 1) - (index - midLeftLength);
+        blendAndSetColors(midRight, index, proxColor, intensity);
+      }
+      else {
+        blendAndSetColors(midLeft, index, proxColor, intensity);
+      }
+      index = i - 4;
+      if (index >= topLeftLength) {
+        index = (topRightLength - 1) - (index - topLeftLength);
+        blendAndSetColors(topRight, index, proxColor, intensity);
+      }
+      else {
+        blendAndSetColors(topLeft, index, proxColor, intensity);
+      }
+      index = i - 4;
+      if (index > bottomLeftLength) {
+        index = (bottomRightLength - 1) - (index - bottomLeftLength);
+        blendAndSetColors(bottomRight, index, proxColor, intensity);
+      }
+      else {
+        blendAndSetColors(bottomLeft, index, proxColor, intensity);
+      }
+    }
+    else {
+      if (index >= midRightLength) {
+        index = (midLeftLength - 1) - (index - midRightLength);
+        blendAndSetColors(midLeft, index, proxColor, intensity);
+      }
+      else {
+        blendAndSetColors(midRight, index, proxColor, intensity);
+      }
+      index = i - 4;
+      if (index >= topRightLength) {
+        index = (topLeftLength - 1) - (index - topRightLength);
+        blendAndSetColors(topLeft, index, proxColor, intensity);
+      }
+      else {
+        blendAndSetColors(topRight, index, proxColor, intensity);
+      }
+      index = i - 4;
+      if (index > bottomRightLength) {
+        index = (bottomLeftLength - 1) - (index - bottomRightLength);
+        blendAndSetColors(bottomLeft, index, proxColor, intensity);
+      }
+      else {
+        blendAndSetColors(bottomRight, index, proxColor, intensity);
+      }
+    }
+  }
+  if (sonarWaves[position] > 30) {
+    sonarWaves[position] = 0;
+  }
 }
+
