@@ -70,6 +70,7 @@ CRGB waveColor(200, 200, 200);
 CRGB proxColor(255, 0, 255);
 
 //TODO: Are these the positions of the sonars? I'm going to assume that these correspond to the nearest LED to the sonar
+//Banting; yep. there are sonars postion that these correspond to the LED number. It Counterclockwise.
 uint8_t proximity_right[14] = {3, 10, 17, 27, 38, 44, 51, 59, 66, 37, 27, 17 , 11}; //Set the sensor and led start position
 // 67 在左側  左側底 40顆 設定每個感測器 偵測時LED起始位置(14顆感測器)
 
@@ -81,8 +82,8 @@ int highThreshold = 800;
 int sonarWaveWidth = 10;
 
 #define prox_count 8
+//How many prox-LED will bright.
 #define prox_range 600
-
 
 void setup() {
   Serial.begin(9600);
