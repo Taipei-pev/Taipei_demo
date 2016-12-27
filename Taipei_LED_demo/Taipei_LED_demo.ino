@@ -66,8 +66,8 @@ int waxing = -1;
 int waveSpeed = 2;
 
 CRGB baseColor = CRGB::Black;
-CRGB waveColor(200, 200, 200);
-CRGB proxColor(255, 0, 255);
+CRGB waveColor(255, 255, 255);
+CRGB proxColor(255, 255, 0);
 
 //TODO: Are these the positions of the sonars? I'm going to assume that these correspond to the nearest LED to the sonar
 //Banting; yep. there are sonars postion that these correspond to the LED number. It Counterclockwise.
@@ -257,6 +257,7 @@ void loop() {
   //topRight.setPixelColor(1, 255/2, 0, 255/2);
   //topRight.setPixelColor(2, 255/4, 0, 255/4);
   //topRight.setPixelColor(3, 255/8, 0, 255/8);
+  //blendAndSetColors(topRight, 2, waveColor, 100.0); //for test LEDs
   proximity();
   FastLED.show();
   delayCount++;
@@ -322,8 +323,10 @@ void blendAndSetColors(CRGB *strip, int index, CRGB& color, float alpha) {
   blue = lerp8by8(blue, color.b, alpha);
   red = lerp8by8(red, color.r, alpha);
   green = lerp8by8(green, color.g, alpha);
-  ////Serial.println(color);
-  strip[index].setRGB(red, green >> 1, blue); // Moderately bright green color.
+  //Serial.print("RGB:: ");Serial.print(" r:: ");Serial.print(red);Serial.print(" g:: ");Serial.print(green);Serial.print(" b:: ");Serial.println(blue);
+  /*Serial.print("Color:: ");
+  Serial.println(color);*/
+  strip[index].setRGB(red, green, blue); // Moderately bright green color.
 }
 
 void stepWaves() {
@@ -362,6 +365,8 @@ void stepWaves() {
 
 void lightRightSide(int front, CRGB *strip, int center) {
   int back = front - width;
+  //Serial.print("back :: ");Serial.println(back);
+  //Serial.print("back :: ");Serial.println(back);
   for (int i = front; i > back; i--) {
     // pixels.Color takes RGB values, from 0,0,0 up to 255,255,255
     float intensity = ((float)(i - (front - width))) / ((float)width);
@@ -369,8 +374,11 @@ void lightRightSide(int front, CRGB *strip, int center) {
     if (index < 0) {
       index += center;
     }
-    blendAndSetColors(strip, index, waveColor, intensity);
-
+   // Serial.print("intensity :: ");Serial.println(intensity);
+   // Serial.print("index :: ");Serial.println(index);
+    blendAndSetColors(strip, index, waveColor, intensity*50);
+   //Serial.print("index :: ");Serial.println(index);
+   //delay(1000);
   }
   //Serial.println("lit right side");
 }
@@ -392,10 +400,10 @@ void lightLeftSide(int front, CRGB *strip,
     ////Serial.println(intensity);
     if ( index >= leftLength) {
       index = rightLength - 1 - (index - leftLength);
-      blendAndSetColors(rightStrip, index, waveColor, intensity);
+      blendAndSetColors(rightStrip, index, waveColor, intensity*50);
     }
     else {
-      blendAndSetColors(strip, index, waveColor, intensity);
+      blendAndSetColors(strip, index, waveColor, intensity*50);
     }
 
   }
@@ -405,7 +413,7 @@ void proximity() {
   float maxProxWidth = 10;
   float maxDistance = 1500;
   float minDistance = 150;
-
+  int value;
   for ( int j = 1 ; j <= 13 ; j++)              //right
   {
     int reading = max(minDistance, min(maxDistance, distances[j]));
@@ -416,7 +424,6 @@ void proximity() {
     else if (reading > highThreshold) {
       sonarWaveReady[j] = true;
     }
-
     if (distances[j] < prox_range) {
       int first = proximity_right[j - 1];
       int last = proximity_right[j - 1] + prox_count;
@@ -427,44 +434,57 @@ void proximity() {
       }
 
       if ( j <= 9) {
+        value = distances[j] ;
+        value = 110 - value/6;
+        if(distances[0] > 450){value = 5;}
         for (int i = first ; i < last ; i++)
         {
-          blendAndSetColors(topRight, i, proxColor, 1.0);
-          blendAndSetColors(midRight, i, proxColor, 1.0);
-          blendAndSetColors(bottomRight, i - 4, proxColor, 1.0);
+          blendAndSetColors(topRight, i, proxColor, value);
+          blendAndSetColors(midRight, i, proxColor, value);
+          blendAndSetColors(bottomRight, i - 4, proxColor, value);
         }
         if ( j == 9 ) {                     //special case ,it near the door
+        value = distances[j] ;
+       value = 110 - value/6;
+       if(distances[0] > 450){value = 5;}
           for (int i = 40 ; i > 36 ; i--)  // Bright 6 LED
           {
-            blendAndSetColors(topLeft, i, proxColor, 1.0);
-            blendAndSetColors(midLeft, i, proxColor, 1.0);
-            blendAndSetColors(bottomLeft, i - 2, proxColor, 1.0);
+            blendAndSetColors(topLeft, i, proxColor, value);
+            blendAndSetColors(midLeft, i, proxColor, value);
+            blendAndSetColors(bottomLeft, i - 2, proxColor, value);
           }
-          blendAndSetColors(bottomLeft, 39, proxColor, 1.0);
+          blendAndSetColors(bottomLeft, 39, proxColor, value);
         }
       }
       else if (j >= 10) {                         //left
         if ( j == 10  || j == 11 ) {
           last_left -= 3;
         }
+        value = distances[j] ;
+    value = 110 - value/6;
+    if(distances[0] > 450){value = 5;}
         for (int i = first ; i > last_left ; i--)
         {
-          blendAndSetColors(topLeft, i, proxColor, 1.0);
-          blendAndSetColors(midLeft, i, proxColor, 1.0);
-          blendAndSetColors(bottomLeft, i - 2, proxColor, 1.0);
+          blendAndSetColors(topLeft, i, proxColor, value);
+          blendAndSetColors(midLeft, i, proxColor, value);
+          blendAndSetColors(bottomLeft, i - 2, proxColor, value);
         }
       }
     }
   }
   if (distances[0] < prox_range) { // Front
+    value = distances[0] ;
+    value = 110 - value/5;
+    if(distances[0] > 450){value = 5;}
     for (int i = 0 ; i < 5 ; i++)
     {
-      blendAndSetColors(topLeft, max(i - 2, 0), proxColor, 1.0);
-      blendAndSetColors(midLeft, i, proxColor, 1.0);
-      blendAndSetColors(bottomLeft, max(i - 2, 0), proxColor, 1.0);
-      blendAndSetColors(topRight, max(i - 2, 0), proxColor, 1.0);
-      blendAndSetColors(midRight, i, proxColor, 1.0);
-      blendAndSetColors(bottomRight, max(i - 2, 0), proxColor, 1.0);
+      blendAndSetColors(topLeft, max(i - 2, 0), proxColor, value);
+      //Serial.println("front");delay(1000);
+      blendAndSetColors(midLeft, i, proxColor, value);
+      blendAndSetColors(bottomLeft, max(i - 2, 0), proxColor, value);
+      blendAndSetColors(topRight, max(i - 2, 0), proxColor, value);
+      blendAndSetColors(midRight, i, proxColor, value);
+      blendAndSetColors(bottomRight, max(i - 2, 0), proxColor, value);
     }
   }
 }
