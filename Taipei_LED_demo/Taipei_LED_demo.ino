@@ -441,16 +441,13 @@ void proximity() {
           blendAndSetColors(bottomRight, i - 4, proxColor, 1.0);
         }
         if ( j == 9 ) {                     //special case ,it near the door
-        value = distances[j] ;
-       value = 110 - value/6;
-       if(distances[0] > 450){value = 5;}
           for (int i = 40 ; i > 36 ; i--)  // Bright 6 LED
           {
-            blendAndSetColors(topLeft, i, proxColor, value);
-            blendAndSetColors(midLeft, i, proxColor, value);
-            blendAndSetColors(bottomLeft, i - 2, proxColor, value);
+            blendAndSetColors(topLeft, i, proxColor, 1.0);
+            blendAndSetColors(midLeft, i, proxColor, 1.0);
+            blendAndSetColors(bottomLeft, i - 2, proxColor, 1.0);
           }
-          blendAndSetColors(bottomLeft, 39, proxColor, value);
+          blendAndSetColors(bottomLeft, 39, proxColor, 1.0);
         }
       }
       else if (j >= 10) {                         //left
