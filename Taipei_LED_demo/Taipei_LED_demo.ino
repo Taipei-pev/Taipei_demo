@@ -376,7 +376,7 @@ void lightRightSide(int front, CRGB *strip, int center) {
     }
    // Serial.print("intensity :: ");Serial.println(intensity);
    // Serial.print("index :: ");Serial.println(index);
-    blendAndSetColors(strip, index, waveColor, intensity*50);
+    blendAndSetColors(strip, index, waveColor, intensity*50); // i change here!!!!
    //Serial.print("index :: ");Serial.println(index);
    //delay(1000);
   }
@@ -400,10 +400,10 @@ void lightLeftSide(int front, CRGB *strip,
     ////Serial.println(intensity);
     if ( index >= leftLength) {
       index = rightLength - 1 - (index - leftLength);
-      blendAndSetColors(rightStrip, index, waveColor, intensity*50);
+      blendAndSetColors(rightStrip, index, waveColor, intensity*50); // i change here!!!!
     }
     else {
-      blendAndSetColors(strip, index, waveColor, intensity*50);
+      blendAndSetColors(strip, index, waveColor, intensity*50); // i change here!!!!
     }
 
   }
@@ -434,14 +434,11 @@ void proximity() {
       }
 
       if ( j <= 9) {
-        value = distances[j] ;
-        value = 110 - value/6;
-        if(distances[0] > 450){value = 5;}
         for (int i = first ; i < last ; i++)
         {
-          blendAndSetColors(topRight, i, proxColor, value);
-          blendAndSetColors(midRight, i, proxColor, value);
-          blendAndSetColors(bottomRight, i - 4, proxColor, value);
+          blendAndSetColors(topRight, i, proxColor, 1.0);
+          blendAndSetColors(midRight, i, proxColor, 1.0);
+          blendAndSetColors(bottomRight, i - 4, proxColor, 1.0);
         }
         if ( j == 9 ) {                     //special case ,it near the door
         value = distances[j] ;
@@ -460,31 +457,25 @@ void proximity() {
         if ( j == 10  || j == 11 ) {
           last_left -= 3;
         }
-        value = distances[j] ;
-    value = 110 - value/6;
-    if(distances[0] > 450){value = 5;}
         for (int i = first ; i > last_left ; i--)
         {
-          blendAndSetColors(topLeft, i, proxColor, value);
-          blendAndSetColors(midLeft, i, proxColor, value);
-          blendAndSetColors(bottomLeft, i - 2, proxColor, value);
+          blendAndSetColors(topLeft, i, proxColor, 1.0);
+          blendAndSetColors(midLeft, i, proxColor, 1.0);
+          blendAndSetColors(bottomLeft, i - 2, proxColor, 1.0);
         }
       }
     }
   }
   if (distances[0] < prox_range) { // Front
-    value = distances[0] ;
-    value = 110 - value/5;
-    if(distances[0] > 450){value = 5;}
     for (int i = 0 ; i < 5 ; i++)
     {
-      blendAndSetColors(topLeft, max(i - 2, 0), proxColor, value);
+      blendAndSetColors(topLeft, max(i - 2, 0), proxColor, 1.0);
       //Serial.println("front");delay(1000);
-      blendAndSetColors(midLeft, i, proxColor, value);
-      blendAndSetColors(bottomLeft, max(i - 2, 0), proxColor, value);
-      blendAndSetColors(topRight, max(i - 2, 0), proxColor, value);
-      blendAndSetColors(midRight, i, proxColor, value);
-      blendAndSetColors(bottomRight, max(i - 2, 0), proxColor, value);
+      blendAndSetColors(midLeft, i, proxColor, 1.0);
+      blendAndSetColors(bottomLeft, max(i - 2, 0), proxColor, 1.0);
+      blendAndSetColors(topRight, max(i - 2, 0), proxColor, 1.0);
+      blendAndSetColors(midRight, i, proxColor, 1.0);
+      blendAndSetColors(bottomRight, max(i - 2, 0), proxColor, 1.0);
     }
   }
 }
